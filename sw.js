@@ -1,4 +1,4 @@
-const CACHE = "seeja-v1";
+const CACHE = "seeja-v2";
 const ASSETS = [
   "./",
   "./index.html",
