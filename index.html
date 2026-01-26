@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>SEEJA | سيجا</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#111827" />
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#111827; --muted:#9ca3af; --text:#e5e7eb;
+      --cell:#0f172a; --cell2:#0b1228; --border:#22304a;
+      --a:#22c55e; --b:#60a5fa; --warn:#f59e0b; --danger:#ef4444;
+      --hi1:#fbbf24; --hi2:#f97316;
+    }
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      background:linear-gradient(180deg,#060917 0%, #0b1020 60%, #050816 100%);
+      color:var(--text);
+    }
+    header{
+      padding:16px 14px 10px;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+    }
+    .brand{
+      display:flex; flex-direction:column; gap:2px;
+    }
+    .brand h1{ margin:0; font-size:18px; letter-spacing:.5px; }
+    .brand small{ color:var(--muted); font-size:12px; }
+    .controls{
+      display:flex; gap:8px; align-items:center;
+    }
+    button, .toggle{
+      background:var(--panel); color:var(--text); border:1px solid var(--border);
+      border-radius:12px; padding:10px 12px; font-size:14px;
+    }
+    button:active{ transform:scale(.99); }
+    .toggle{ display:flex; gap:8px; align-items:center; }
+    .toggle input{ transform:scale(1.2); }
+
+    main{
+      padding:10px 12px 18px;
+      display:grid; gap:12px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 820px){
+      main{ grid-template-columns: 1fr 280px; align-items:start; }
+    }
+
+    .card{
+      background:rgba(17,24,39,.7);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:12px;
+      backdrop-filter: blur(8px);
+    }
+    .status{
+      display:flex; flex-direction:column; gap:6px;
+      margin-bottom:10px;
+    }
+    .status .line{ color:var(--text); font-size:14px; }
+    .status .hint{ color:var(--muted); font-size:12px; }
+
+    .boardWrap{
+      display:flex; justify-content:center;
+    }
+
+    .board{
+      display:grid;
+      grid-template-columns: repeat(5, 58px);
+      grid-template-rows: repeat(5, 58px);
+      gap:8px;
+      padding:10px;
+      border-radius:18px;
+      background:rgba(15,23,42,.35);
+      border:1px solid var(--border);
+    }
+    .cell{
+      width:58px; height:58px;
+      border-radius:14px;
+      border:1px solid rgba(34,48,74,.9);
+      background:linear-gradient(180deg, var(--cell) 0%, var(--cell2) 100%);
+      display:flex; align-items:center; justify-content:center;
+      font-size:20px; font-weight:700;
+      user-select:none;
+      position:relative;
+      transition: transform .15s ease, outline-color .15s ease, box-shadow .15s ease;
+      touch-action: manipulation;
+    }
+    .cell:active{ transform:scale(.99); }
+    .cell.centerEmpty::after{
+      content:"X";
+      position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      color:rgba(245,158,11,.85); font-weight:800;
+    }
+    .cell .piece{
+      width:40px; height:40px; border-radius:999px;
+      display:flex; align-items:center; justify-content:center;
+      border:2px solid rgba(255,255,255,.12);
+      box-shadow: 0 8px 18px rgba(0,0,0,.35);
+      font-size:16px;
+    }
+    .piece.A{ background: radial-gradient(circle at 30% 25%, #5eead4, var(--a)); }
+    .piece.B{ background: radial-gradient(circle at 30% 25%, #93c5fd, var(--b)); }
+
+    .selected{
+      outline:3px solid rgba(251,191,36,.9);
+      box-shadow: 0 0 0 4px rgba(251,191,36,.15);
+    }
+    .lastFrom{
+      outline:3px solid rgba(251,191,36,.75);
+    }
+    .lastTo{
+      outline:3px solid rgba(249,115,22,.85);
+      box-shadow: 0 0 0 4px rgba(249,115,22,.14);
+    }
+    .pulse{
+      animation:pulse .55s ease-in-out 1;
+    }
+    @keyframes pulse{
+      0%{ transform:scale(1); }
+      45%{ transform:scale(1.05); }
+      100%{ transform:scale(1); }
+    }
+
+    .bench h3{ margin:0 0 8px; font-size:14px; }
+    .bench .row{ display:flex; justify-content:space-between; gap:8px; font-size:14px; }
+    .bench .dots{
+      margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;
+    }
+    .dot{
+      width:18px; height:18px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+    }
+    .dot.A{ background:var(--a); }
+    .dot.B{ background:var(--b); }
+
+    .actions{ display:flex; gap:8px; margin-top:10px; }
+    .actions button{ flex:1; }
+
+    .note{ color:var(--muted); font-size:12px; margin-top:10px; line-height:1.6; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="brand">
+      <h1>SEEJA | سيجا</h1>
+      <small>Placement (رص) → Movement (حركة) | بدون طيران</small>
+    </div>
+    <div class="controls">
+      <label class="toggle" title="B = AI">
+        <input id="vsAi" type="checkbox" checked />
+        ضد الكمبيوتر
+      </label>
+      <button id="resetBtn">إعادة</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="status">
+        <div class="line" id="statusLine">...</div>
+        <div class="hint" id="hintLine">...</div>
+      </div>
+
+      <div class="boardWrap">
+        <div class="board" id="board"></div>
+      </div>
+
+      <div class="actions" id="chainActions" style="display:none;">
+        <button id="continueChainBtn">أكمل السلسلة</button>
+        <button id="endTurnBtn">أنهى الدور</button>
+      </div>
+
+      <div class="note">
+        <b>قواعد مختصرة:</b> في الرص: كل دور تحط حجرين (C3 ممنوع رص). في الحركة: خطوة واحدة (أفقي/رأسي). الأكل “سندوتش” (A-B-A).
+        السلسلة مسموحة فقط إذا أكلت في نفس الحركة، وليست إجبارية، وتكمل بنفس الحجر.
+      </div>
+    </section>
+
+    <aside class="card bench">
+      <h3>الدكة (الأحجار المأكولة)</h3>
+
+      <div class="row"><span>مأكول من A</span><b id="capA">0</b></div>
+      <div class="dots" id="dotsA"></div>
+
+      <hr style="border:none;border-top:1px solid var(--border); margin:12px 0;" />
+
+      <div class="row"><span>مأكول من B</span><b id="capB">0</b></div>
+      <div class="dots" id="dotsB"></div>
+
+      <hr style="border:none;border-top:1px solid var(--border); margin:12px 0;" />
+
+      <div class="note" id="lastMoveBox">آخر حركة: —</div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    // Service worker (offline)
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js");
+    }
+  </script>
+</body>
+</html>
