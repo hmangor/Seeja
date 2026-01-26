@@ -13,8 +13,11 @@
     :root{
       --bg:#0b1020; --panel:#111827; --muted:#9ca3af; --text:#e5e7eb;
       --cell:#0f172a; --cell2:#0b1228; --border:#22304a;
-      --a:#22c55e; --b:#60a5fa; --warn:#f59e0b; --danger:#ef4444;
-      --hi1:#fbbf24; --hi2:#f97316;
+
+      --a:#22c55e; --a2:#86efac;   /* A highlights */
+      --b:#3b82f6; --b2:#93c5fd;   /* B highlights */
+
+      --warn:#f59e0b; --danger:#ef4444;
     }
     body{
       margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
@@ -23,17 +26,17 @@
     }
     header{
       padding:16px 14px 10px;
-      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
+      flex-wrap:wrap;
     }
-    .brand{
-      display:flex; flex-direction:column; gap:2px;
-    }
+    .brand{ display:flex; flex-direction:column; gap:2px; }
     .brand h1{ margin:0; font-size:18px; letter-spacing:.5px; }
     .brand small{ color:var(--muted); font-size:12px; }
+
     .controls{
-      display:flex; gap:8px; align-items:center;
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
     }
-    button, .toggle{
+    button, .toggle, .nameBox input{
       background:var(--panel); color:var(--text); border:1px solid var(--border);
       border-radius:12px; padding:10px 12px; font-size:14px;
     }
@@ -41,13 +44,31 @@
     .toggle{ display:flex; gap:8px; align-items:center; }
     .toggle input{ transform:scale(1.2); }
 
+    .nameBox{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      background:rgba(17,24,39,.55);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:10px;
+    }
+    .nameBox label{ color:var(--muted); font-size:12px; }
+    .nameBox .pair{ display:flex; flex-direction:column; gap:6px; }
+    .nameBox input{
+      width:170px;
+      padding:10px 12px;
+      outline:none;
+    }
+    .nameBox input:disabled{ opacity:.65; }
+    .nameNote{ color:var(--muted); font-size:12px; line-height:1.5; }
+
     main{
       padding:10px 12px 18px;
       display:grid; gap:12px;
       grid-template-columns: 1fr;
     }
     @media (min-width: 820px){
-      main{ grid-template-columns: 1fr 280px; align-items:start; }
+      main{ grid-template-columns: 1fr 320px; align-items:start; }
+      .nameBox input{ width:190px; }
     }
 
     .card{
@@ -64,9 +85,7 @@
     .status .line{ color:var(--text); font-size:14px; }
     .status .hint{ color:var(--muted); font-size:12px; }
 
-    .boardWrap{
-      display:flex; justify-content:center;
-    }
+    .boardWrap{ display:flex; justify-content:center; }
 
     .board{
       display:grid;
@@ -84,54 +103,69 @@
       border:1px solid rgba(34,48,74,.9);
       background:linear-gradient(180deg, var(--cell) 0%, var(--cell2) 100%);
       display:flex; align-items:center; justify-content:center;
-      font-size:20px; font-weight:700;
       user-select:none;
       position:relative;
       transition: transform .15s ease, outline-color .15s ease, box-shadow .15s ease;
       touch-action: manipulation;
+      overflow:hidden;
     }
     .cell:active{ transform:scale(.99); }
+
     .cell.centerEmpty::after{
       content:"X";
       position:absolute; inset:0;
       display:flex; align-items:center; justify-content:center;
-      color:rgba(245,158,11,.85); font-weight:800;
+      color:rgba(245,158,11,.85); font-weight:900; font-size:18px;
     }
-    .cell .piece{
+
+    .piece{
       width:40px; height:40px; border-radius:999px;
       display:flex; align-items:center; justify-content:center;
       border:2px solid rgba(255,255,255,.12);
       box-shadow: 0 8px 18px rgba(0,0,0,.35);
       font-size:16px;
+      font-weight:800;
     }
     .piece.A{ background: radial-gradient(circle at 30% 25%, #5eead4, var(--a)); }
     .piece.B{ background: radial-gradient(circle at 30% 25%, #93c5fd, var(--b)); }
 
     .selected{
-      outline:3px solid rgba(251,191,36,.9);
-      box-shadow: 0 0 0 4px rgba(251,191,36,.15);
+      outline:3px solid rgba(245,158,11,.95);
+      box-shadow: 0 0 0 4px rgba(245,158,11,.15);
     }
-    .lastFrom{
-      outline:3px solid rgba(251,191,36,.75);
+
+    /* Last move highlight — per player */
+    .lastFrom.A{ outline:3px solid var(--a); }
+    .lastTo.A{
+      outline:3px solid var(--a2);
+      box-shadow: 0 0 0 4px rgba(134,239,172,.14);
     }
-    .lastTo{
-      outline:3px solid rgba(249,115,22,.85);
-      box-shadow: 0 0 0 4px rgba(249,115,22,.14);
+    .lastFrom.B{ outline:3px solid var(--b); }
+    .lastTo.B{
+      outline:3px solid var(--b2);
+      box-shadow: 0 0 0 4px rgba(147,197,253,.14);
     }
-    .pulse{
-      animation:pulse .55s ease-in-out 1;
-    }
+
+    .pulse{ animation:pulse .55s ease-in-out 1; }
     @keyframes pulse{
       0%{ transform:scale(1); }
       45%{ transform:scale(1.05); }
       100%{ transform:scale(1); }
     }
 
+    /* Capture animation */
+    @keyframes shatter {
+      0%   { transform:scale(1) rotate(0deg); opacity:1; filter:saturate(1); }
+      35%  { transform:scale(1.12) rotate(7deg); filter:saturate(1.2); }
+      100% { transform:scale(0.25) rotate(-14deg); opacity:0; filter:saturate(.2); }
+    }
+    .shatter{
+      animation: shatter .55s ease-out forwards;
+    }
+
     .bench h3{ margin:0 0 8px; font-size:14px; }
     .bench .row{ display:flex; justify-content:space-between; gap:8px; font-size:14px; }
-    .bench .dots{
-      margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;
-    }
+    .bench .dots{ margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
     .dot{
       width:18px; height:18px; border-radius:999px;
       border:1px solid rgba(255,255,255,.12);
@@ -142,7 +176,59 @@
     .actions{ display:flex; gap:8px; margin-top:10px; }
     .actions button{ flex:1; }
 
-    .note{ color:var(--muted); font-size:12px; margin-top:10px; line-height:1.6; }
+    .ruleTitle{
+      margin:14px 0 8px;
+      font-size:14px;
+    }
+    .rules{
+      color:#d1d5db;
+      font-size:12.5px;
+      line-height:1.75;
+      margin:0;
+      padding-right:18px;
+    }
+    .rules li{ margin:6px 0; }
+    .muted{ color:var(--muted); font-size:12px; line-height:1.6; }
+
+    /* Winner overlay */
+    .winOverlay{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.78);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:999;
+      padding:16px;
+    }
+    .winBox{
+      background:#111827;
+      padding:22px 22px;
+      border-radius:18px;
+      text-align:center;
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow: 0 18px 40px rgba(0,0,0,.55);
+      max-width: 520px;
+      width: min(520px, 92vw);
+    }
+    .winBox h2{
+      margin:0 0 8px;
+      font-size:22px;
+    }
+    .winBox p{
+      margin:0 0 14px;
+      color:#cbd5e1;
+      font-size:14px;
+      line-height:1.6;
+    }
+    .winBox .btnRow{
+      display:flex;
+      gap:10px;
+      margin-top:10px;
+    }
+    .winBox .btnRow button{
+      flex:1;
+    }
   </style>
 </head>
 
@@ -150,14 +236,29 @@
   <header>
     <div class="brand">
       <h1>SEEJA | سيجا</h1>
-      <small>Placement (رص) → Movement (حركة) | بدون طيران</small>
+      <small>مرحلة الرص → مرحلة الحركة | (C3 ممنوع رص)</small>
     </div>
+
     <div class="controls">
       <label class="toggle" title="B = AI">
         <input id="vsAi" type="checkbox" checked />
-        ضد الكمبيوتر
+        اللعب ضد الذكاء الاصطناعي
       </label>
       <button id="resetBtn">إعادة</button>
+    </div>
+
+    <div class="nameBox">
+      <div class="pair">
+        <label for="nameA">اسم اللاعب A</label>
+        <input id="nameA" maxlength="18" placeholder="Player A" />
+      </div>
+      <div class="pair">
+        <label for="nameB">اسم اللاعب B</label>
+        <input id="nameB" maxlength="18" placeholder="Player B / AI" />
+      </div>
+      <div class="nameNote" id="nameNote">
+        يمكنك تعديل الأسماء قبل بداية اللعبة. بعد أول رص سيتم قفلها.
+      </div>
     </div>
   </header>
 
@@ -177,10 +278,9 @@
         <button id="endTurnBtn">أنهى الدور</button>
       </div>
 
-      <div class="note">
-        <b>قواعد مختصرة:</b> في الرص: كل دور تحط حجرين (C3 ممنوع رص). في الحركة: خطوة واحدة (أفقي/رأسي). الأكل “سندوتش” (A-B-A).
-        السلسلة مسموحة فقط إذا أكلت في نفس الحركة، وليست إجبارية، وتكمل بنفس الحجر.
-      </div>
+      <p class="muted" style="margin-top:10px;">
+        تمييز الحركة: من (From) → إلى (To) حسب لون اللاعب: <b style="color:var(--a)">A</b> أخضر، <b style="color:var(--b)">B</b> أزرق.
+      </p>
     </section>
 
     <aside class="card bench">
@@ -196,9 +296,29 @@
 
       <hr style="border:none;border-top:1px solid var(--border); margin:12px 0;" />
 
-      <div class="note" id="lastMoveBox">آخر حركة: —</div>
+      <div class="muted" id="lastMoveBox">آخر حركة: —</div>
+
+      <h4 class="ruleTitle">قواعد اللعبة</h4>
+      <ol class="rules">
+        <li>إذا حركت حجرك إلى خانة فارغة، وأصبح حجر الخصم بين حجرين من أحجارك (مثل الساندويتش)، يتم تكسير حجر الخصم وإخراجه من اللعبة.</li>
+        <li>يمكن بحركة واحدة تكسير أكثر من حجر للخصم، ويمكن للحجر نفسه أن يتحرك أكثر من مرة إذا نتج عن الحركة تكسير حجر آخر للخصم.</li>
+        <li>مرحلة الرص مهمة جدًا، حيث تمكنك من توزيع الأحجار بشكل تكتيكي يساعدك لاحقًا في محاصرة الخصم والتحكم في مسار اللعب.</li>
+        <li>يقوم كل لاعب برص حجرين في كل دور حتى تكتمل الأحجار، ولا يُسمح بالرص على المربع الموجود في منتصف اللعبة.</li>
+      </ol>
     </aside>
   </main>
+
+  <!-- Winner overlay -->
+  <div id="winOverlay" class="winOverlay">
+    <div class="winBox">
+      <h2 id="winTitle">🎉 الفائز: —</h2>
+      <p id="winText">انتهت المباراة.</p>
+      <div class="btnRow">
+        <button id="playAgainBtn">إعادة اللعب</button>
+        <button id="closeWinBtn">إغلاق</button>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
   <script>
