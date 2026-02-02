@@ -3,111 +3,157 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>SEEJA | سيجا</title>
+  <title>SEEJA</title>
 
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#111827" />
-  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="theme-color" content="#0b1020" />
 
   <style>
     :root{
-      --bg:#0b1020; --panel:#111827; --muted:#9ca3af; --text:#e5e7eb;
-      --cell:#0f172a; --cell2:#0b1228; --border:#22304a;
+      --bg:#070a16;
+      --panel:rgba(17,24,39,.72);
+      --panel2:rgba(17,24,39,.55);
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --border:#22304a;
 
-      --a:#22c55e; --a2:#86efac;   /* A highlights */
-      --b:#3b82f6; --b2:#93c5fd;   /* B highlights */
+      --cell1:#0f172a;
+      --cell2:#0b1228;
 
-      --warn:#f59e0b; --danger:#ef4444;
+      --a:#22c55e; --a2:#86efac;
+      --b:#3b82f6; --b2:#93c5fd;
+
+      --x:#f59e0b;
     }
+
     body{
-      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      background:linear-gradient(180deg,#060917 0%, #0b1020 60%, #050816 100%);
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      background: radial-gradient(1200px 600px at 50% -10%, rgba(59,130,246,.18), transparent 55%),
+                  radial-gradient(900px 500px at 10% 20%, rgba(34,197,94,.14), transparent 60%),
+                  linear-gradient(180deg, #050716, #0b1020 60%, #050816);
       color:var(--text);
     }
+
+    /* ---------- TOP BAR ---------- */
     header{
-      padding:16px 14px 10px;
-      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
-      flex-wrap:wrap;
+      padding:12px 12px 8px;
+      display:grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items:center;
+      gap:10px;
     }
-    .brand{ display:flex; flex-direction:column; gap:2px; }
-    .brand h1{ margin:0; font-size:18px; letter-spacing:.5px; }
-    .brand small{ color:var(--muted); font-size:12px; }
+    .leftCtl, .rightCtl{
+      display:flex; gap:8px; align-items:center;
+    }
+    .rightCtl{ justify-content:flex-start; }
+    .leftCtl{ justify-content:flex-end; }
 
-    .controls{
-      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    .logoBox{
+      display:flex;
+      justify-content:center;
+      align-items:center;
     }
-    button, .toggle, .nameBox input{
-      background:var(--panel); color:var(--text); border:1px solid var(--border);
-      border-radius:12px; padding:10px 12px; font-size:14px;
+    .logoBox img{
+      height:44px;
+      max-width:75vw;
+      object-fit:contain;
+      filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
     }
-    button:active{ transform:scale(.99); }
-    .toggle{ display:flex; gap:8px; align-items:center; }
-    .toggle input{ transform:scale(1.2); }
 
-    .nameBox{
-      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
-      background:rgba(17,24,39,.55);
+    button, .chip{
+      background:var(--panel);
+      color:var(--text);
       border:1px solid var(--border);
       border-radius:14px;
-      padding:10px;
-    }
-    .nameBox label{ color:var(--muted); font-size:12px; }
-    .nameBox .pair{ display:flex; flex-direction:column; gap:6px; }
-    .nameBox input{
-      width:170px;
       padding:10px 12px;
-      outline:none;
+      font-size:14px;
+      cursor:pointer;
     }
-    .nameBox input:disabled{ opacity:.65; }
-    .nameNote{ color:var(--muted); font-size:12px; line-height:1.5; }
+    button:active{ transform:scale(.99); }
 
+    .toggle{
+      display:flex; gap:8px; align-items:center;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:10px 12px;
+      font-size:14px;
+      user-select:none;
+    }
+    .toggle input{ transform:scale(1.15); }
+
+    a.chip{
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    /* ---------- LAYOUT ---------- */
     main{
       padding:10px 12px 18px;
-      display:grid; gap:12px;
+      display:grid;
+      gap:12px;
       grid-template-columns: 1fr;
     }
-    @media (min-width: 820px){
+    @media (min-width: 900px){
       main{ grid-template-columns: 1fr 320px; align-items:start; }
-      .nameBox input{ width:190px; }
     }
 
     .card{
-      background:rgba(17,24,39,.7);
+      background:var(--panel);
       border:1px solid var(--border);
-      border-radius:16px;
+      border-radius:18px;
       padding:12px;
       backdrop-filter: blur(8px);
     }
-    .status{
-      display:flex; flex-direction:column; gap:6px;
+
+    /* ---------- STATUS (minimal) ---------- */
+    .statusRow{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
       margin-bottom:10px;
+      flex-wrap:wrap;
     }
-    .status .line{ color:var(--text); font-size:14px; }
-    .status .hint{ color:var(--muted); font-size:12px; }
+    .statusText{
+      font-size:14px;
+      color:var(--text);
+    }
+    .hintText{
+      font-size:12px;
+      color:var(--muted);
+    }
 
-    .boardWrap{ display:flex; justify-content:center; }
-
+    /* ---------- BOARD ---------- */
+    .boardWrap{
+      display:flex;
+      justify-content:center;
+    }
     .board{
       display:grid;
-      grid-template-columns: repeat(5, 58px);
-      grid-template-rows: repeat(5, 58px);
-      gap:8px;
+      grid-template-columns: repeat(5, 60px);
+      grid-template-rows: repeat(5, 60px);
+      gap:9px;
       padding:10px;
       border-radius:18px;
       background:rgba(15,23,42,.35);
       border:1px solid var(--border);
+      position:relative;
     }
     .cell{
-      width:58px; height:58px;
-      border-radius:14px;
+      width:60px; height:60px;
+      border-radius:16px;
       border:1px solid rgba(34,48,74,.9);
-      background:linear-gradient(180deg, var(--cell) 0%, var(--cell2) 100%);
+      background:linear-gradient(180deg, var(--cell1), var(--cell2));
       display:flex; align-items:center; justify-content:center;
-      user-select:none;
       position:relative;
-      transition: transform .15s ease, outline-color .15s ease, box-shadow .15s ease;
+      user-select:none;
       touch-action: manipulation;
       overflow:hidden;
+      transition: outline-color .15s ease, box-shadow .15s ease, transform .15s ease;
     }
     .cell:active{ transform:scale(.99); }
 
@@ -115,82 +161,92 @@
       content:"X";
       position:absolute; inset:0;
       display:flex; align-items:center; justify-content:center;
-      color:rgba(245,158,11,.85); font-weight:900; font-size:18px;
+      color:rgba(245,158,11,.85);
+      font-weight:900;
+      font-size:20px;
     }
 
     .piece{
-      width:40px; height:40px; border-radius:999px;
+      width:42px; height:42px;
+      border-radius:999px;
       display:flex; align-items:center; justify-content:center;
-      border:2px solid rgba(255,255,255,.12);
-      box-shadow: 0 8px 18px rgba(0,0,0,.35);
       font-size:16px;
-      font-weight:800;
+      font-weight:900;
+      border:2px solid rgba(255,255,255,.12);
+      box-shadow: 0 10px 22px rgba(0,0,0,.35);
     }
     .piece.A{ background: radial-gradient(circle at 30% 25%, #5eead4, var(--a)); }
     .piece.B{ background: radial-gradient(circle at 30% 25%, #93c5fd, var(--b)); }
 
-    .selected{
-      outline:3px solid rgba(245,158,11,.95);
-      box-shadow: 0 0 0 4px rgba(245,158,11,.15);
-    }
+    /* highlights */
+    .selected{ outline:3px solid rgba(245,158,11,.95); box-shadow:0 0 0 4px rgba(245,158,11,.14); }
+    .aiPick{ outline:3px solid rgba(255,255,255,.35); box-shadow:0 0 0 4px rgba(255,255,255,.08); }
 
-    /* Last move highlight — per player */
     .lastFrom.A{ outline:3px solid var(--a); }
-    .lastTo.A{
-      outline:3px solid var(--a2);
-      box-shadow: 0 0 0 4px rgba(134,239,172,.14);
-    }
+    .lastTo.A{ outline:3px solid var(--a2); box-shadow:0 0 0 4px rgba(134,239,172,.14); }
     .lastFrom.B{ outline:3px solid var(--b); }
-    .lastTo.B{
-      outline:3px solid var(--b2);
-      box-shadow: 0 0 0 4px rgba(147,197,253,.14);
-    }
+    .lastTo.B{ outline:3px solid var(--b2); box-shadow:0 0 0 4px rgba(147,197,253,.14); }
 
-    .pulse{ animation:pulse .55s ease-in-out 1; }
-    @keyframes pulse{
-      0%{ transform:scale(1); }
-      45%{ transform:scale(1.05); }
-      100%{ transform:scale(1); }
+    /* ---------- BENCH (no titles) ---------- */
+    .benchRow{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:10px 10px;
+      border-radius:16px;
+      border:1px solid rgba(34,48,74,.8);
+      background:rgba(15,23,42,.28);
+      margin-bottom:10px;
     }
+    .benchTag{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-weight:900;
+      font-size:16px;
+    }
+    .tagA{ color:var(--a2); }
+    .tagB{ color:var(--b2); }
 
-    /* Capture animation */
-    @keyframes shatter {
-      0%   { transform:scale(1) rotate(0deg); opacity:1; filter:saturate(1); }
-      35%  { transform:scale(1.12) rotate(7deg); filter:saturate(1.2); }
-      100% { transform:scale(0.25) rotate(-14deg); opacity:0; filter:saturate(.2); }
+    .benchCount{
+      font-weight:900;
+      color:var(--text);
+      opacity:.95;
     }
-    .shatter{
-      animation: shatter .55s ease-out forwards;
+    .miniLine{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
     }
-
-    .bench h3{ margin:0 0 8px; font-size:14px; }
-    .bench .row{ display:flex; justify-content:space-between; gap:8px; font-size:14px; }
-    .bench .dots{ margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
-    .dot{
-      width:18px; height:18px; border-radius:999px;
+    .mini{
+      width:18px; height:18px;
+      border-radius:999px;
       border:1px solid rgba(255,255,255,.12);
     }
-    .dot.A{ background:var(--a); }
-    .dot.B{ background:var(--b); }
+    .mini.A{ background:var(--a); }
+    .mini.B{ background:var(--b); }
 
-    .actions{ display:flex; gap:8px; margin-top:10px; }
-    .actions button{ flex:1; }
-
-    .ruleTitle{
-      margin:14px 0 8px;
-      font-size:14px;
+    /* ---------- OVERLAYS ---------- */
+    .toast{
+      position:fixed;
+      left:50%;
+      transform:translateX(-50%);
+      top:70px;
+      background:rgba(17,24,39,.86);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;
+      padding:10px 12px;
+      font-size:13px;
+      color:var(--text);
+      display:none;
+      z-index:50;
+      max-width:min(520px, 92vw);
+      text-align:center;
+      box-shadow:0 18px 40px rgba(0,0,0,.55);
     }
-    .rules{
-      color:#d1d5db;
-      font-size:12.5px;
-      line-height:1.75;
-      margin:0;
-      padding-right:18px;
-    }
-    .rules li{ margin:6px 0; }
-    .muted{ color:var(--muted); font-size:12px; line-height:1.6; }
 
-    /* Winner overlay */
     .winOverlay{
       position:fixed;
       inset:0;
@@ -203,126 +259,189 @@
     }
     .winBox{
       background:#111827;
-      padding:22px 22px;
-      border-radius:18px;
-      text-align:center;
       border:1px solid rgba(255,255,255,.12);
-      box-shadow: 0 18px 40px rgba(0,0,0,.55);
-      max-width: 520px;
-      width: min(520px, 92vw);
+      border-radius:18px;
+      padding:18px 18px;
+      width:min(520px, 92vw);
+      text-align:center;
+      box-shadow:0 18px 40px rgba(0,0,0,.55);
     }
-    .winBox h2{
-      margin:0 0 8px;
-      font-size:22px;
+    .winBox h2{ margin:0 0 8px; font-size:22px; }
+    .winBox p{ margin:0 0 12px; color:#cbd5e1; font-size:14px; }
+    .winBtns{ display:flex; gap:10px; }
+    .winBtns button{ flex:1; }
+
+    /* ---------- SETTINGS MODAL (names) ---------- */
+    .modal{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.72);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:998;
+      padding:16px;
     }
-    .winBox p{
-      margin:0 0 14px;
-      color:#cbd5e1;
-      font-size:14px;
-      line-height:1.6;
+    .modalBox{
+      width:min(560px, 92vw);
+      background:#111827;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:18px;
+      padding:16px;
+      box-shadow:0 18px 40px rgba(0,0,0,.55);
     }
-    .winBox .btnRow{
-      display:flex;
+    .modalBox h3{ margin:0 0 10px; }
+    .modalBox .row{
+      display:grid;
+      grid-template-columns: 1fr;
       gap:10px;
-      margin-top:10px;
     }
-    .winBox .btnRow button{
-      flex:1;
+    @media(min-width:520px){
+      .modalBox .row{ grid-template-columns: 1fr 1fr; }
+    }
+    .modalBox label{ font-size:12px; color:var(--muted); display:block; margin-bottom:6px; }
+    .modalBox input{
+      width:100%;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:rgba(15,23,42,.35);
+      color:var(--text);
+      font-size:14px;
+      outline:none;
+    }
+    .modalBtns{ display:flex; gap:10px; margin-top:12px; }
+    .modalBtns button{ flex:1; }
+
+    /* ---------- ANIMATION LAYER ---------- */
+    .animLayer{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:60;
+    }
+    .flyPiece{
+      position:absolute;
+      width:42px; height:42px;
+      border-radius:999px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:16px;
+      font-weight:900;
+      border:2px solid rgba(255,255,255,.12);
+      box-shadow:0 10px 22px rgba(0,0,0,.35);
+      transform:translate(-50%, -50%);
+      transition: left .34s ease, top .34s ease, transform .34s ease, opacity .34s ease;
+    }
+    .flyPiece.A{ background: radial-gradient(circle at 30% 25%, #5eead4, var(--a)); }
+    .flyPiece.B{ background: radial-gradient(circle at 30% 25%, #93c5fd, var(--b)); }
+
+    .boom{
+      position:absolute;
+      transform:translate(-50%,-50%);
+      font-size:18px;
+      opacity:0;
+      transition: opacity .22s ease, transform .22s ease;
     }
   </style>
 </head>
 
 <body>
+
   <header>
-    <div class="brand">
-      <h1>SEEJA | سيجا</h1>
-      <small>مرحلة الرص → مرحلة الحركة | (C3 ممنوع رص)</small>
+    <div class="rightCtl">
+      <a class="chip" href="rules.html">📘 قواعد اللعبة</a>
+      <button id="settingsBtn" title="إعدادات الأسماء">⚙️</button>
     </div>
 
-    <div class="controls">
+    <div class="logoBox">
+      <!-- ضع اللوغو هنا -->
+      <img src="logo.png" alt="SEEJA Logo">
+    </div>
+
+    <div class="leftCtl">
       <label class="toggle" title="B = AI">
         <input id="vsAi" type="checkbox" checked />
-        اللعب ضد الذكاء الاصطناعي
+        ضد الذكاء الاصطناعي
       </label>
       <button id="resetBtn">إعادة</button>
     </div>
-
-    <div class="nameBox">
-      <div class="pair">
-        <label for="nameA">اسم اللاعب A</label>
-        <input id="nameA" maxlength="18" placeholder="Player A" />
-      </div>
-      <div class="pair">
-        <label for="nameB">اسم اللاعب B</label>
-        <input id="nameB" maxlength="18" placeholder="Player B / AI" />
-      </div>
-      <div class="nameNote" id="nameNote">
-        يمكنك تعديل الأسماء قبل بداية اللعبة. بعد أول رص سيتم قفلها.
-      </div>
-    </div>
   </header>
+
+  <div class="toast" id="toast"></div>
 
   <main>
     <section class="card">
-      <div class="status">
-        <div class="line" id="statusLine">...</div>
-        <div class="hint" id="hintLine">...</div>
+      <div class="statusRow">
+        <div class="statusText" id="statusLine">...</div>
+        <div class="hintText" id="hintLine">...</div>
       </div>
 
       <div class="boardWrap">
         <div class="board" id="board"></div>
       </div>
-
-      <div class="actions" id="chainActions" style="display:none;">
-        <button id="continueChainBtn">أكمل السلسلة</button>
-        <button id="endTurnBtn">أنهى الدور</button>
-      </div>
-
-      <p class="muted" style="margin-top:10px;">
-        تمييز الحركة: من (From) → إلى (To) حسب لون اللاعب: <b style="color:var(--a)">A</b> أخضر، <b style="color:var(--b)">B</b> أزرق.
-      </p>
     </section>
 
-    <aside class="card bench">
-      <h3>الدكة (الأحجار المأكولة)</h3>
+    <aside class="card">
+      <div class="benchRow">
+        <div class="benchTag tagA">A</div>
+        <div class="benchCount" id="capA">0</div>
+        <div class="miniLine" id="miniA"></div>
+      </div>
 
-      <div class="row"><span>مأكول من A</span><b id="capA">0</b></div>
-      <div class="dots" id="dotsA"></div>
+      <div class="benchRow">
+        <div class="benchTag tagB">B</div>
+        <div class="benchCount" id="capB">0</div>
+        <div class="miniLine" id="miniB"></div>
+      </div>
 
-      <hr style="border:none;border-top:1px solid var(--border); margin:12px 0;" />
-
-      <div class="row"><span>مأكول من B</span><b id="capB">0</b></div>
-      <div class="dots" id="dotsB"></div>
-
-      <hr style="border:none;border-top:1px solid var(--border); margin:12px 0;" />
-
-      <div class="muted" id="lastMoveBox">آخر حركة: —</div>
-
-      <h4 class="ruleTitle">قواعد اللعبة</h4>
-      <ol class="rules">
-        <li>إذا حركت حجرك إلى خانة فارغة، وأصبح حجر الخصم بين حجرين من أحجارك (مثل الساندويتش)، يتم تكسير حجر الخصم وإخراجه من اللعبة.</li>
-        <li>يمكن بحركة واحدة تكسير أكثر من حجر للخصم، ويمكن للحجر نفسه أن يتحرك أكثر من مرة إذا نتج عن الحركة تكسير حجر آخر للخصم.</li>
-        <li>مرحلة الرص مهمة جدًا، حيث تمكنك من توزيع الأحجار بشكل تكتيكي يساعدك لاحقًا في محاصرة الخصم والتحكم في مسار اللعب.</li>
-        <li>يقوم كل لاعب برص حجرين في كل دور حتى تكتمل الأحجار، ولا يُسمح بالرص على المربع الموجود في منتصف اللعبة.</li>
-      </ol>
+      <div style="color:var(--muted);font-size:12px;line-height:1.6;">
+        ✨ التمييز: آخر حركة اللاعب A بالأخضر، وB بالأزرق.  
+        💥 عند كسر حجر: سيتحرك إلى الدكة.
+      </div>
     </aside>
   </main>
+
+  <!-- animation layer -->
+  <div class="animLayer" id="animLayer"></div>
 
   <!-- Winner overlay -->
   <div id="winOverlay" class="winOverlay">
     <div class="winBox">
-      <h2 id="winTitle">🎉 الفائز: —</h2>
-      <p id="winText">انتهت المباراة.</p>
-      <div class="btnRow">
+      <h2 id="winTitle">🏆 الفائز</h2>
+      <p id="winText">انتهت اللعبة.</p>
+      <div class="winBtns">
         <button id="playAgainBtn">إعادة اللعب</button>
         <button id="closeWinBtn">إغلاق</button>
       </div>
     </div>
   </div>
 
+  <!-- Settings modal (names) -->
+  <div id="settingsModal" class="modal">
+    <div class="modalBox">
+      <h3>إعداد الأسماء</h3>
+      <div class="row">
+        <div>
+          <label>اسم اللاعب A</label>
+          <input id="nameA" maxlength="18" placeholder="Player A">
+        </div>
+        <div>
+          <label>اسم اللاعب B</label>
+          <input id="nameB" maxlength="18" placeholder="Player B / AI">
+        </div>
+      </div>
+      <div style="color:var(--muted);font-size:12px; margin-top:10px; line-height:1.6;">
+        سيتم حفظ الأسماء على جهازك. يمكنك تغييرها لاحقًا من ⚙️.
+      </div>
+      <div class="modalBtns">
+        <button id="saveNamesBtn">حفظ</button>
+        <button id="closeNamesBtn">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
   <script>
-    // Service worker (offline)
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("./sw.js");
     }

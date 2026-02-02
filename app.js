@@ -4,50 +4,50 @@ const EMPTY = ".";
 const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
 
 const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 const state = {
   board: initBoard(),
-  phase: "placement",       // placement | movement
+  phase: "placement",
   turnPlace: "A",
   remaining: {A:12, B:12},
   placeCountInTurn: 0,
 
-  turnMove: "B",            // movement starts with B
+  phaseMoveTurn: "B",        // الحركة تبدأ بـ B
   selected: null,
 
-  chainAllowed: false,
-  lastMoverPos: null,
-
   vsAi: true,
+  aiBusy: false,
 
-  capturedFrom: {A:0, B:0},
-  lastMove: null, // {player, frm:[r,c], to:[r,c], cap}
+  capturedFrom: {A:0, B:0},  // قطع خرجت من اللعبة: مأكول من A / مأكول من B
+  lastMove: null,            // {player, frm:[r,c], to:[r,c], cap}
 
-  // capture animation support
-  lastCaptured: null, // {victim:"A"|"B", positions:[[r,c],...]}
+  aiPick: null,              // لتحديد حجر AI قبل الحركة {fromKey, toKey}
 
-  // names
-  namesLocked: false,
-  nameA: "Player A",
-  nameB: "Player B",
+  names: {
+    A: "Player A",
+    B: "AI"
+  },
 
   lock: false
 };
 
+/* ---------- INIT ---------- */
 function initBoard(){
   return Array.from({length:SIZE}, () => Array.from({length:SIZE}, () => EMPTY));
 }
 function other(p){ return p === "A" ? "B" : "A"; }
 function inBounds(r,c){ return r>=0 && r<SIZE && c>=0 && c<SIZE; }
-function rcToLabel(r,c){ return String.fromCharCode(65+c) + (r+1); }
 function isCenter(r,c){ return r===CENTER[0] && c===CENTER[1]; }
+function rcKey(r,c){ return `${r},${c}`; }
 
+/* ---------- GAME LOGIC ---------- */
 function validPlacement(r,c){
   if(isCenter(r,c)) return false;
   return state.board[r][c] === EMPTY;
 }
 
-function legalMovesFromPiece(player, pos){
+function legalMovesFrom(player, pos){
   const [r,c] = pos;
   if(state.board[r][c] !== player) return [];
   const moves = [];
@@ -60,8 +60,7 @@ function legalMovesFromPiece(player, pos){
   return moves;
 }
 
-// capture helper that returns removed positions for animation
-function computeCaptures(player, movedTo){
+function computeCaptures(board, player, movedTo){
   const [r,c]=movedTo;
   const opp = other(player);
   const toRemove = [];
@@ -69,18 +68,10 @@ function computeCaptures(player, movedTo){
     const r1=r+dr, c1=c+dc;
     const r2=r+2*dr, c2=c+2*dc;
     if(inBounds(r1,c1) && inBounds(r2,c2)){
-      if(state.board[r1][c1]===opp && state.board[r2][c2]===player){
+      if(board[r1][c1]===opp && board[r2][c2]===player){
         toRemove.push([r1,c1]);
       }
     }
-  }
-  return toRemove;
-}
-
-function applyCaptures(player, movedTo){
-  const toRemove = computeCaptures(player, movedTo);
-  for(const [rr,cc] of toRemove){
-    state.board[rr][cc]=EMPTY;
   }
   return toRemove;
 }
@@ -90,56 +81,18 @@ function doMove(player, frm, to){
   state.board[fr][fc]=EMPTY;
   state.board[tr][tc]=player;
 
-  const removed = applyCaptures(player, [tr,tc]);
-  if(removed.length){
-    state.lastCaptured = { victim: other(player), positions: removed };
-    // clear after animation
-    setTimeout(() => {
-      state.lastCaptured = null;
-      render(false);
-    }, 650);
+  const removed = computeCaptures(state.board, player, [tr,tc]);
+  for(const [rr,cc] of removed){
+    state.board[rr][cc]=EMPTY;
   }
-  return removed.length;
-}
-
-function capturingMovesFromPiece(player, pos){
-  const caps = [];
-  const moves = legalMovesFromPiece(player, pos);
-  for(const [frm,to] of moves){
-    const b = cloneBoard(state.board);
-    const cap = simulateMove(b, player, frm, to);
-    if(cap>0) caps.push([frm,to,cap]);
-  }
-  return caps;
-}
-
-function cloneBoard(b){ return b.map(row => row.slice()); }
-
-function simulateMove(b, player, frm, to){
-  const [fr,fc]=frm, [tr,tc]=to;
-  b[fr][fc]=EMPTY;
-  b[tr][tc]=player;
-
-  const opp = other(player);
-  const toRemove = [];
-  for(const [dr,dc] of DIRS){
-    const r1=tr+dr, c1=tc+dc;
-    const r2=tr+2*dr, c2=tc+2*dc;
-    if(inBounds(r1,c1) && inBounds(r2,c2)){
-      if(b[r1][c1]===opp && b[r2][c2]===player){
-        toRemove.push([r1,c1]);
-      }
-    }
-  }
-  for(const [rr,cc] of toRemove){ b[rr][cc]=EMPTY; }
-  return toRemove.length;
+  return removed; // positions
 }
 
 function hasAnyMove(player){
   for(let r=0;r<SIZE;r++){
     for(let c=0;c<SIZE;c++){
       if(state.board[r][c]===player){
-        if(legalMovesFromPiece(player,[r,c]).length>0) return true;
+        if(legalMovesFrom(player,[r,c]).length>0) return true;
       }
     }
   }
@@ -161,6 +114,7 @@ function checkWinner(){
   const cnt = countPieces();
   if(cnt.A===0) return "B";
   if(cnt.B===0) return "A";
+
   if(state.phase==="movement"){
     if(!hasAnyMove("A")) return "B";
     if(!hasAnyMove("B")) return "A";
@@ -168,7 +122,407 @@ function checkWinner(){
   return null;
 }
 
-// ---------- AI ----------
+/* ---------- UI ELEMENTS ---------- */
+const boardEl = $("board");
+const statusLine = $("statusLine");
+const hintLine = $("hintLine");
+
+const vsAiEl = $("vsAi");
+const resetBtn = $("resetBtn");
+
+const capAEl = $("capA");
+const capBEl = $("capB");
+const miniA = $("miniA");
+const miniB = $("miniB");
+
+const toast = $("toast");
+const animLayer = $("animLayer");
+
+const winOverlay = $("winOverlay");
+const winTitle = $("winTitle");
+const winText = $("winText");
+const playAgainBtn = $("playAgainBtn");
+const closeWinBtn = $("closeWinBtn");
+
+const settingsBtn = $("settingsBtn");
+const settingsModal = $("settingsModal");
+const nameAInput = $("nameA");
+const nameBInput = $("nameB");
+const saveNamesBtn = $("saveNamesBtn");
+const closeNamesBtn = $("closeNamesBtn");
+
+/* ---------- EVENTS ---------- */
+vsAiEl.addEventListener("change", () => {
+  state.vsAi = !!vsAiEl.checked;
+  state.names.B = state.vsAi ? (state.names.B || "AI") : (state.names.B === "AI" ? "Player B" : state.names.B);
+  saveNamesToStorage();
+  toastMsg(state.vsAi ? "✅ وضع الذكاء الاصطناعي" : "✅ وضع لاعبين على نفس الجهاز");
+  render();
+});
+
+resetBtn.addEventListener("click", resetGame);
+
+playAgainBtn.addEventListener("click", () => { winOverlay.style.display="none"; resetGame(); });
+closeWinBtn.addEventListener("click", () => { winOverlay.style.display="none"; });
+
+settingsBtn.addEventListener("click", openNamesModal);
+closeNamesBtn.addEventListener("click", () => settingsModal.style.display="none");
+saveNamesBtn.addEventListener("click", () => {
+  state.names.A = cleanName(nameAInput.value, "Player A");
+  state.names.B = cleanName(nameBInput.value, state.vsAi ? "AI" : "Player B");
+  saveNamesToStorage();
+  settingsModal.style.display="none";
+  toastMsg("✅ تم حفظ الأسماء");
+  render();
+});
+
+function cleanName(v, fallback){
+  const s = (v||"").trim();
+  return s ? s.slice(0,18) : fallback;
+}
+
+/* ---------- STORAGE ---------- */
+function loadNamesFromStorage(){
+  try{
+    const raw = localStorage.getItem("seeja_names_v1");
+    if(!raw) return false;
+    const obj = JSON.parse(raw);
+    if(obj && obj.A) state.names.A = obj.A;
+    if(obj && obj.B) state.names.B = obj.B;
+    return true;
+  }catch{ return false; }
+}
+function saveNamesToStorage(){
+  localStorage.setItem("seeja_names_v1", JSON.stringify(state.names));
+}
+
+/* ---------- TOAST ---------- */
+let toastTimer=null;
+function toastMsg(text){
+  toast.textContent = text;
+  toast.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.style.display="none", 1200);
+}
+
+/* ---------- MODAL ---------- */
+function openNamesModal(){
+  nameAInput.value = state.names.A || "Player A";
+  nameBInput.value = state.names.B || (state.vsAi ? "AI" : "Player B");
+  settingsModal.style.display="flex";
+}
+
+/* ---------- RENDER ---------- */
+function setStatus(line, hint){
+  statusLine.textContent = line;
+  hintLine.textContent = hint;
+}
+
+function render(){
+  // benches
+  capAEl.textContent = state.capturedFrom.A;
+  capBEl.textContent = state.capturedFrom.B;
+
+  miniA.innerHTML = "";
+  miniB.innerHTML = "";
+  for(let i=0;i<Math.min(state.capturedFrom.A, 40); i++){
+    const d=document.createElement("div");
+    d.className="mini A";
+    miniA.appendChild(d);
+  }
+  for(let i=0;i<Math.min(state.capturedFrom.B, 40); i++){
+    const d=document.createElement("div");
+    d.className="mini B";
+    miniB.appendChild(d);
+  }
+
+  // status
+  if(state.phase==="placement"){
+    setStatus(
+      `مرحلة الرص — الدور: ${state.turnPlace}  (${state.turnPlace==="A" ? state.names.A : state.names.B})`,
+      `كل دور: حجرين | C3 ممنوع رص | المتبقي A=${state.remaining.A} , B=${state.remaining.B}`
+    );
+  } else {
+    const w = checkWinner();
+    if(w){
+      showWinner(w);
+    }else{
+      const who = state.phaseMoveTurn;
+      const nm = (who==="A") ? state.names.A : state.names.B;
+      setStatus(
+        `مرحلة الحركة — الدور: ${who} (${nm})`,
+        state.vsAi && who==="B" ? "الذكاء الاصطناعي يتحرك..." : "اضغط على حجرك ثم اضغط على خانة فاضية."
+      );
+    }
+  }
+
+  // board
+  boardEl.innerHTML = "";
+
+  const lastFrom = state.lastMove ? rcKey(...state.lastMove.frm) : null;
+  const lastTo   = state.lastMove ? rcKey(...state.lastMove.to)  : null;
+  const lastP    = state.lastMove ? state.lastMove.player : null;
+
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const key = rcKey(r,c);
+
+      if(isCenter(r,c) && state.board[r][c]===EMPTY) cell.classList.add("centerEmpty");
+
+      if(state.selected && state.selected[0]===r && state.selected[1]===c) cell.classList.add("selected");
+
+      if(state.aiPick){
+        if(state.aiPick.fromKey===key) cell.classList.add("aiPick");
+      }
+
+      if(lastFrom===key && lastP) cell.classList.add("lastFrom", lastP);
+      if(lastTo===key && lastP) cell.classList.add("lastTo", lastP);
+
+      const v = state.board[r][c];
+      if(v==="A" || v==="B"){
+        const p = document.createElement("div");
+        p.className = `piece ${v}`;
+        p.textContent = v;
+        cell.appendChild(p);
+      }
+
+      cell.addEventListener("click", () => onCellClick(r,c));
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+/* ---------- MOVE ANIMATIONS ---------- */
+function cellCenterPos(r,c){
+  const idx = r*SIZE + c;
+  const el = boardEl.children[idx];
+  const rect = el.getBoundingClientRect();
+  return {x: rect.left + rect.width/2, y: rect.top + rect.height/2};
+}
+
+function benchTargetPos(victim){
+  // victim "A" means piece of A goes to bench A (capturedFrom.A count area)
+  const targetEl = (victim==="A") ? capAEl : capBEl;
+  const rect = targetEl.getBoundingClientRect();
+  return {x: rect.left + rect.width/2, y: rect.top + rect.height/2 + 28};
+}
+
+async function animateSlide(player, frm, to){
+  const from = cellCenterPos(frm[0], frm[1]);
+  const dest = cellCenterPos(to[0], to[1]);
+
+  const fly = document.createElement("div");
+  fly.className = `flyPiece ${player}`;
+  fly.textContent = player;
+  fly.style.left = from.x + "px";
+  fly.style.top  = from.y + "px";
+  animLayer.appendChild(fly);
+
+  // start frame
+  await sleep(10);
+  fly.style.left = dest.x + "px";
+  fly.style.top  = dest.y + "px";
+
+  await sleep(360);
+  fly.remove();
+}
+
+async function animateToBench(victim, pos){
+  const from = cellCenterPos(pos[0], pos[1]);
+  const dest = benchTargetPos(victim);
+
+  const fly = document.createElement("div");
+  fly.className = `flyPiece ${victim}`;
+  fly.textContent = victim;
+  fly.style.left = from.x + "px";
+  fly.style.top  = from.y + "px";
+  animLayer.appendChild(fly);
+
+  const boom = document.createElement("div");
+  boom.className = "boom";
+  boom.textContent = "💥";
+  boom.style.left = dest.x + "px";
+  boom.style.top  = dest.y + "px";
+  animLayer.appendChild(boom);
+
+  await sleep(10);
+  fly.style.left = dest.x + "px";
+  fly.style.top  = dest.y + "px";
+  fly.style.transform = "translate(-50%,-50%) scale(.55)";
+  fly.style.opacity = "0.15";
+
+  await sleep(220);
+  boom.style.opacity = "1";
+  boom.style.transform = "translate(-50%,-50%) scale(1.2)";
+
+  await sleep(200);
+  boom.style.opacity = "0";
+  boom.style.transform = "translate(-50%,-50%) scale(.8)";
+
+  await sleep(120);
+  fly.remove();
+  boom.remove();
+}
+
+/* ---------- INPUT HANDLING ---------- */
+async function onCellClick(r,c){
+  if(state.lock) return;
+
+  // placement
+  if(state.phase==="placement"){
+    // if AI: user places only A
+    if(state.vsAi && state.turnPlace==="B"){
+      toastMsg("⏳ الذكاء الاصطناعي يرص تلقائيًا");
+      return;
+    }
+
+    if(!validPlacement(r,c)){
+      toastMsg("❌ غير مسموح (الخانة مشغولة أو C3)");
+      return;
+    }
+
+    state.board[r][c] = state.turnPlace;
+    state.remaining[state.turnPlace]--;
+    state.placeCountInTurn++;
+
+    render();
+
+    if(state.placeCountInTurn < 2){
+      toastMsg("ضع الحجر الثاني");
+      return;
+    }
+
+    // end placement turn
+    state.placeCountInTurn = 0;
+    state.turnPlace = other(state.turnPlace);
+
+    // AI places two
+    if(state.vsAi && state.turnPlace==="B"){
+      aiPlaceTwo();
+      state.turnPlace="A";
+      render();
+      toastMsg("🤖 AI رص حجرين");
+    } else {
+      render();
+    }
+
+    if(state.remaining.A===0 && state.remaining.B===0){
+      state.phase="movement";
+      state.phaseMoveTurn="B";
+      state.selected=null;
+      state.lastMove=null;
+      render();
+
+      if(state.vsAi){
+        await sleep(350);
+        await aiPlayTurn(); // يبدأ مباشرة
+      } else {
+        toastMsg("✅ اكتمل الرص — B يبدأ الحركة");
+      }
+    }
+    return;
+  }
+
+  // movement
+  const player = state.phaseMoveTurn;
+
+  // block clicks if AI's turn
+  if(state.vsAi && player==="B"){
+    return;
+  }
+
+  if(!state.selected){
+    if(state.board[r][c]!==player){
+      toastMsg("اختار حجرك أولاً");
+      return;
+    }
+    state.selected=[r,c];
+    render();
+    return;
+  }
+
+  // destination
+  if(state.board[r][c]!==EMPTY){
+    toastMsg("اختر خانة فاضية");
+    return;
+  }
+
+  const frm = state.selected;
+  const to = [r,c];
+  const legal = legalMovesFrom(player, frm).some(m => m[1][0]===to[0] && m[1][1]===to[1]);
+  if(!legal){
+    toastMsg("حركة غير صحيحة (خطوة واحدة)");
+    return;
+  }
+
+  // animate move
+  state.lock = true;
+  await animateSlide(player, frm, to);
+
+  // apply
+  state.selected=null;
+  const removed = doMove(player, frm, to);
+
+  state.lastMove = {player, frm, to, cap: removed.length};
+  render();
+
+  // captures animate to bench
+  if(removed.length){
+    const victim = other(player);
+    for(const p of removed){
+      await animateToBench(victim, p);
+      state.capturedFrom[victim] += 1;
+      render();
+    }
+
+    // chain rule: can continue only if next move causes capture
+    // simplified for now: after any capture, allow one extra check for more captures from new position
+    // (keeps the rule you want without UX complexity)
+    const more = hasCaptureFrom(player, to);
+    if(more){
+      toastMsg("✅ يمكنك متابعة السلسلة (أكل إضافي متاح)");
+      state.selected = to; // نفس الحجر
+      render();
+      state.lock = false;
+      return;
+    }
+  }
+
+  // end turn
+  const w = checkWinner();
+  if(w){
+    showWinner(w);
+    state.lock=false;
+    return;
+  }
+
+  state.phaseMoveTurn = other(state.phaseMoveTurn);
+  render();
+
+  state.lock = false;
+
+  if(state.vsAi && state.phaseMoveTurn==="B"){
+    await sleep(450);
+    await aiPlayTurn();
+  }
+}
+
+function hasCaptureFrom(player, pos){
+  const moves = legalMovesFrom(player, pos);
+  for(const [frm,to] of moves){
+    const boardCopy = state.board.map(row => row.slice());
+    // simulate
+    boardCopy[frm[0]][frm[1]]=EMPTY;
+    boardCopy[to[0]][to[1]]=player;
+    const removed = computeCaptures(boardCopy, player, to);
+    if(removed.length) return true;
+  }
+  return false;
+}
+
+/* ---------- AI ---------- */
 function aiPlaceTwo(){
   const empties = [];
   for(let r=0;r<SIZE;r++){
@@ -177,545 +531,163 @@ function aiPlaceTwo(){
     }
   }
   shuffle(empties);
-  let placed=0;
-  while(placed<2 && state.remaining.B>0 && empties.length){
+  for(let i=0;i<2 && state.remaining.B>0 && empties.length;i++){
     const [r,c]=empties.pop();
     state.board[r][c]="B";
     state.remaining.B--;
-    placed++;
   }
 }
 
 function aiChooseMove(){
-  const moves=[];
+  const candidates=[];
   for(let r=0;r<SIZE;r++){
     for(let c=0;c<SIZE;c++){
       if(state.board[r][c]==="B"){
-        moves.push(...legalMovesFromPiece("B",[r,c]));
+        const moves = legalMovesFrom("B",[r,c]);
+        for(const [frm,to] of moves){
+          // score by captures
+          const b = state.board.map(row=>row.slice());
+          b[frm[0]][frm[1]]=EMPTY;
+          b[to[0]][to[1]]="B";
+          const caps = computeCaptures(b,"B",to).length;
+          candidates.push({frm,to,caps});
+        }
       }
     }
   }
-  shuffle(moves);
-  let best=null, bestCap=-1;
-  for(const [frm,to] of moves){
-    const b = cloneBoard(state.board);
-    const cap = simulateMove(b,"B",frm,to);
-    if(cap>bestCap){
-      bestCap=cap;
-      best=[frm,to,cap];
-    }
-  }
-  return best;
+  if(!candidates.length) return null;
+  candidates.sort((x,y)=>y.caps - x.caps);
+  return candidates[0];
 }
 
 async function aiPlayTurn(){
   if(!state.vsAi) return;
-  if(state.turnMove!=="B") return;
+  if(state.phaseMoveTurn!=="B") return;
+  if(state.aiBusy) return;
 
+  state.aiBusy = true;
   state.lock = true;
 
-  // slower AI (clear for humans)
-  await sleep(700);
+  // delay so user sees the turn
+  await sleep(650);
 
   const mv = aiChooseMove();
   if(!mv){
+    // no moves -> A wins
+    showWinner("A");
+    state.aiBusy=false;
     state.lock=false;
     return;
   }
-  const [frm,to] = mv;
-  const cap1 = doMove("B", frm, to);
 
-  state.capturedFrom["A"] += cap1;
-  state.lastMove = {player:"B", frm, to, cap:cap1};
+  // show pick highlight
+  state.aiPick = {fromKey: rcKey(...mv.frm), toKey: rcKey(...mv.to)};
+  render();
+  await sleep(450);
 
-  render(true);
+  // animate slide
+  await animateSlide("B", mv.frm, mv.to);
 
-  if(cap1>0){
-    let cur = to;
-    while(true){
-      const caps = capturingMovesFromPiece("B", cur);
-      if(!caps.length) break;
+  // apply move
+  const removed = doMove("B", mv.frm, mv.to);
+  state.lastMove = {player:"B", frm: mv.frm, to: mv.to, cap: removed.length};
+  state.aiPick = null;
+  render();
 
-      caps.sort((a,b)=>b[2]-a[2]);
-      const [frm2,to2,_] = caps[0];
+  // animate captures to bench
+  if(removed.length){
+    for(const p of removed){
+      await animateToBench("A", p);
+      state.capturedFrom["A"] += 1;
+      render();
+    }
 
-      await sleep(600); // slower chain
-      const capn = doMove("B", frm2, to2);
-      state.capturedFrom["A"] += capn;
-      state.lastMove = {player:"B", frm:frm2, to:to2, cap:capn};
+    // chain capture rule (only if next capture exists)
+    let cur = mv.to;
+    while(hasCaptureFrom("B", cur)){
+      await sleep(420);
 
-      cur = to2;
-      render(true);
-      if(capn<=0) break;
+      // choose a capture-producing move from cur
+      const moves = legalMovesFrom("B", cur);
+      let chosen=null;
+      for(const [frm,to] of moves){
+        const b = state.board.map(row=>row.slice());
+        b[frm[0]][frm[1]]=EMPTY;
+        b[to[0]][to[1]]="B";
+        const caps = computeCaptures(b,"B",to).length;
+        if(caps>0){ chosen={frm,to}; break; }
+      }
+      if(!chosen) break;
+
+      // highlight chain pick quickly
+      state.aiPick = {fromKey: rcKey(...chosen.frm), toKey: rcKey(...chosen.to)};
+      render();
+      await sleep(320);
+
+      await animateSlide("B", chosen.frm, chosen.to);
+      const removed2 = doMove("B", chosen.frm, chosen.to);
+      state.lastMove = {player:"B", frm: chosen.frm, to: chosen.to, cap: removed2.length};
+      state.aiPick=null;
+      render();
+
+      for(const p of removed2){
+        await animateToBench("A", p);
+        state.capturedFrom["A"] += 1;
+        render();
+      }
+
+      cur = chosen.to;
     }
   }
 
   const w = checkWinner();
-  if(w){
-    showWinner(w);
-    state.lock=false;
-    return;
-  }
+  if(w){ showWinner(w); state.aiBusy=false; state.lock=false; return; }
 
-  state.turnMove = "A";
-  setStatus(`دور ${state.nameA} (A) للحركة.`, "اضغط حجرك ثم على خانة فاضية.");
+  state.phaseMoveTurn="A";
+  render();
+
+  state.aiBusy=false;
   state.lock=false;
 }
 
-// ---------- UI ----------
-const boardEl = $("board");
-const vsAiEl = $("vsAi");
-const resetBtn = $("resetBtn");
-
-const statusLine = $("statusLine");
-const hintLine = $("hintLine");
-
-const chainActions = $("chainActions");
-const continueChainBtn = $("continueChainBtn");
-const endTurnBtn = $("endTurnBtn");
-
-const capAEl = $("capA");
-const capBEl = $("capB");
-const dotsA = $("dotsA");
-const dotsB = $("dotsB");
-const lastMoveBox = $("lastMoveBox");
-
-const nameAInput = $("nameA");
-const nameBInput = $("nameB");
-const nameNote = $("nameNote");
-
-const winOverlay = $("winOverlay");
-const winTitle = $("winTitle");
-const winText = $("winText");
-const playAgainBtn = $("playAgainBtn");
-const closeWinBtn = $("closeWinBtn");
-
-vsAiEl.addEventListener("change", () => {
-  state.vsAi = !!vsAiEl.checked;
-
-  // If AI ON, nameB placeholder becomes AI and locked label text changes
-  if(state.vsAi && !state.namesLocked){
-    if(!nameBInput.value.trim()) nameBInput.value = "AI";
-  }
-  render(false);
-});
-
-resetBtn.addEventListener("click", () => resetGame());
-
-nameAInput.addEventListener("input", () => {
-  if(state.namesLocked) return;
-  state.nameA = cleanName(nameAInput.value, "Player A");
-  render(false);
-});
-nameBInput.addEventListener("input", () => {
-  if(state.namesLocked) return;
-  state.nameB = cleanName(nameBInput.value, state.vsAi ? "AI" : "Player B");
-  render(false);
-});
-
-continueChainBtn.addEventListener("click", () => {
-  setStatus("وضع السلسلة: أكمل بنفس الحجر.", `اضغط الحجر في ${rcToLabel(...state.lastMoverPos)} ثم الوجهة (لازم أكل).`);
-});
-
-endTurnBtn.addEventListener("click", () => {
-  state.chainAllowed=false;
-  state.lastMoverPos=null;
-  state.selected=null;
-  chainActions.style.display="none";
-  endTurn();
-  render(true);
-});
-
-playAgainBtn.addEventListener("click", () => {
-  winOverlay.style.display = "none";
-  resetGame();
-});
-closeWinBtn.addEventListener("click", () => {
-  winOverlay.style.display = "none";
-});
-
-function cleanName(v, fallback){
-  const s = (v || "").trim();
-  return s.length ? s.slice(0,18) : fallback;
-}
-
-function lockNames(){
-  state.namesLocked = true;
-  nameAInput.disabled = true;
-  nameBInput.disabled = true;
-  nameNote.textContent = "تم قفل الأسماء بعد بدء اللعبة.";
-}
-
-function setStatus(line, hint){
-  statusLine.textContent = line;
-  hintLine.textContent = hint;
-}
-
+/* ---------- WINNER ---------- */
 function showWinner(w){
-  const winnerName = (w==="A") ? state.nameA : state.nameB;
-  winTitle.textContent = `🎉 الفائز: ${winnerName}`;
-  winText.textContent = "انتهت المباراة. يمكنك إعادة اللعب الآن.";
-  winOverlay.style.display = "flex";
+  const winnerName = (w==="A") ? state.names.A : state.names.B;
+  winTitle.textContent = `🏆 الفائز: ${w}`;
+  winText.textContent = `🎉 مبروك ${winnerName}!`;
+  winOverlay.style.display="flex";
 }
 
+/* ---------- RESET ---------- */
 function resetGame(){
-  // names read before reset (if not locked)
-  state.nameA = cleanName(nameAInput.value, "Player A");
-  state.nameB = cleanName(nameBInput.value, state.vsAi ? "AI" : "Player B");
-
   state.board = initBoard();
-  state.phase="placement";
-  state.turnPlace="A";
-  state.remaining={A:12,B:12};
-  state.placeCountInTurn=0;
+  state.phase = "placement";
+  state.turnPlace = "A";
+  state.remaining = {A:12, B:12};
+  state.placeCountInTurn = 0;
 
-  state.turnMove="B";
-  state.selected=null;
-  state.chainAllowed=false;
-  state.lastMoverPos=null;
+  state.phaseMoveTurn = "B";
+  state.selected = null;
 
-  state.capturedFrom={A:0,B:0};
-  state.lastMove=null;
-  state.lastCaptured=null;
+  state.capturedFrom = {A:0, B:0};
+  state.lastMove = null;
 
-  state.lock=false;
+  state.aiPick = null;
+  state.aiBusy = false;
 
-  // unlock names on reset
-  state.namesLocked = false;
-  nameAInput.disabled = false;
-  nameBInput.disabled = false;
-  nameNote.textContent = "يمكنك تعديل الأسماء قبل بداية اللعبة. بعد أول رص سيتم قفلها.";
-
-  // default nameB for AI
-  if(state.vsAi && !nameBInput.value.trim()) nameBInput.value = "AI";
+  state.lock = false;
 
   winOverlay.style.display="none";
 
-  setStatus(`ابدأ الرص: دور ${state.nameA} (A) — حجرين.`, "ممنوع الرص في C3 (المربع X).");
-  chainActions.style.display="none";
-  render(true);
+  // adjust name B if vsAi changed
+  if(state.vsAi && state.names.B.trim().toLowerCase()==="player b") state.names.B="AI";
+  if(!state.vsAi && state.names.B.trim().toLowerCase()==="ai") state.names.B="Player B";
+
+  render();
+  toastMsg("🔄 تم إعادة اللعبة");
 }
 
-function endTurn(){
-  const w = checkWinner();
-  if(w){ showWinner(w); return; }
-
-  state.turnMove = other(state.turnMove);
-
-  if(state.vsAi && state.turnMove==="B"){
-    setStatus(`دور ${state.nameB} (B) — الذكاء الاصطناعي...`, "الذكاء الاصطناعي يتحرك الآن.");
-    aiPlayTurn();
-  }else{
-    // Pass & Play hint
-    const nm = (state.turnMove==="A") ? state.nameA : state.nameB;
-    setStatus(`دور ${nm} (${state.turnMove}) للحركة.`, `مرر الجوال إلى ${nm} ثم اضغط حجرًا ثم خانة فاضية.`);
-  }
-}
-
-function handleCellClick(r,c){
-  if(state.lock) return;
-
-  // -------- Placement --------
-  if(state.phase==="placement"){
-    // lock names at first real action
-    if(!state.namesLocked) lockNames();
-
-    const p = state.turnPlace;
-
-    // if vs AI: user only places A
-    if(state.vsAi && p==="B"){
-      setStatus(`${state.nameB} يرص تلقائيًا.`, `الآن دور ${state.nameA} فقط.`);
-      return;
-    }
-
-    if(!validPlacement(r,c)){
-      setStatus("غير مسموح.", "الخانة مشغولة أو C3.");
-      return;
-    }
-
-    state.board[r][c]=p;
-    state.remaining[p]--;
-    state.placeCountInTurn++;
-
-    if(state.placeCountInTurn<2){
-      const nm = (p==="A") ? state.nameA : state.nameB;
-      setStatus(`${nm} (${p}) وضع حجر 1.`, "ضع الحجر الثاني.");
-      render(true);
-      return;
-    }
-
-    // end placing turn
-    state.placeCountInTurn=0;
-    state.turnPlace = other(p);
-
-    if(state.vsAi && state.turnPlace==="B"){
-      aiPlaceTwo();
-      state.turnPlace="A";
-      setStatus(`${state.nameB} (B) رص حجرين تلقائيًا.`, `الآن دور ${state.nameA} يرص حجرين.`);
-    }else{
-      const nm = (state.turnPlace==="A") ? state.nameA : state.nameB;
-      setStatus(`الآن دور ${nm} (${state.turnPlace}) للرّص.`, "ضع حجرين.");
-    }
-
-    // placement complete?
-    if(state.remaining.A===0 && state.remaining.B===0){
-      state.phase="movement";
-      state.selected=null;
-      state.chainAllowed=false;
-      state.lastMoverPos=null;
-      state.turnMove="B";
-
-      if(state.vsAi){
-        setStatus("اكتمل الرص. B يبدأ الحركة.", "الذكاء الاصطناعي سيتحرك الآن.");
-        render(true);
-        aiPlayTurn(); // start immediately
-      }else{
-        setStatus("اكتمل الرص. B يبدأ الحركة.", `مرر الجوال إلى ${state.nameB} ثم ابدأ الحركة.`);
-        render(true);
-      }
-      return;
-    }
-
-    render(true);
-    return;
-  }
-
-  // -------- Movement --------
-  const player = state.turnMove;
-
-  // block clicks if B is AI's turn
-  if(state.vsAi && player==="B"){
-    setStatus("دور الذكاء الاصطناعي.", "انتظر حركة الخصم.");
-    return;
-  }
-
-  // Chain mode
-  if(state.chainAllowed){
-    const must = state.lastMoverPos;
-
-    if(!state.selected){
-      // must select same piece
-      if(!(r===must[0] && c===must[1])){
-        setStatus("وضع السلسلة.", `لازم تتحرك بنفس الحجر في ${rcToLabel(...must)}.`);
-        return;
-      }
-      state.selected=[r,c];
-      setStatus("تم اختيار الحجر للسلسلة.", "الآن اختر الوجهة (لازم أكل).");
-      render(true);
-      return;
-    }else{
-      const frm = state.selected;
-      const to = [r,c];
-
-      if(state.board[r][c]!==EMPTY){
-        setStatus("الوجهة لازم تكون فاضية.", "اختر خانة فاضية.");
-        return;
-      }
-
-      const legal = legalMovesFromPiece(player, frm).map(m => m[1].join(","));
-      if(!legal.includes(to.join(","))){
-        setStatus("حركة غير صحيحة.", "الحركة خطوة واحدة فقط.");
-        return;
-      }
-
-      const caps = capturingMovesFromPiece(player, frm);
-      const capTos = new Set(caps.map(x=>x[1].join(",")));
-      if(!capTos.has(to.join(","))){
-        setStatus("السلسلة لازم تكون بأكل.", "اختر وجهة تؤدي لأكل.");
-        return;
-      }
-
-      const cap = doMove(player, frm, to);
-      state.capturedFrom[other(player)] += cap;
-      state.lastMove = {player, frm, to, cap};
-
-      state.selected=null;
-      state.lastMoverPos = to;
-
-      render(true);
-
-      // check for next chain
-      const nextCaps = capturingMovesFromPiece(player, to);
-      if(nextCaps.length){
-        state.chainAllowed=true;
-        chainActions.style.display="flex";
-        setStatus(`تم تكسير ${cap} (سلسلة متاحة)`, `يمكنك المتابعة من ${rcToLabel(...to)} أو إنهاء الدور.`);
-      }else{
-        state.chainAllowed=false;
-        state.lastMoverPos=null;
-        chainActions.style.display="none";
-        endTurn();
-      }
-      return;
-    }
-  }
-
-  // Normal move: select piece then destination
-  if(!state.selected){
-    if(state.board[r][c]!==player){
-      const nm = (player==="A") ? state.nameA : state.nameB;
-      setStatus("اختار حجرك أولاً.", `الدور الآن: ${nm} (${player})`);
-      return;
-    }
-    state.selected=[r,c];
-    setStatus("تم اختيار الحجر.", "الآن اختر خانة فاضية للوجهة.");
-    render(true);
-    return;
-  }else{
-    const frm = state.selected;
-    const to = [r,c];
-
-    if(state.board[r][c]!==EMPTY){
-      setStatus("الوجهة لازم تكون فاضية.", "اختر خانة فاضية.");
-      return;
-    }
-
-    const legal = legalMovesFromPiece(player, frm).map(m => m[1].join(","));
-    if(!legal.includes(to.join(","))){
-      setStatus("حركة غير صحيحة.", "الحركة خطوة واحدة فقط.");
-      return;
-    }
-
-    const cap = doMove(player, frm, to);
-    state.capturedFrom[other(player)] += cap;
-    state.lastMove = {player, frm, to, cap};
-
-    state.selected=null;
-
-    render(true);
-
-    if(cap>0){
-      const nextCaps = capturingMovesFromPiece(player, to);
-      if(nextCaps.length){
-        state.chainAllowed=true;
-        state.lastMoverPos=to;
-        chainActions.style.display="flex";
-        setStatus(`تم تكسير ${cap} (سلسلة متاحة)`, `يمكنك المتابعة من ${rcToLabel(...to)} أو إنهاء الدور.`);
-        return;
-      }
-    }
-
-    state.chainAllowed=false;
-    state.lastMoverPos=null;
-    chainActions.style.display="none";
-    endTurn();
-    return;
-  }
-}
-
-function render(withPulse=false){
-  // compute names (safe)
-  state.nameA = cleanName(nameAInput.value, "Player A");
-  const bFallback = state.vsAi ? "AI" : "Player B";
-  state.nameB = cleanName(nameBInput.value, bFallback);
-
-  // status defaults (only if no winner overlay)
-  if(state.phase==="placement"){
-    setStatus(
-      `مرحلة الرص: دور ${state.turnPlace==="A" ? state.nameA : state.nameB} (${state.turnPlace}) — حجرين`,
-      `المتبقي A=${state.remaining.A} | B=${state.remaining.B} | C3 ممنوع رص`
-    );
-  }else{
-    const w = checkWinner();
-    if(w){
-      showWinner(w);
-    }else{
-      const nm = (state.turnMove==="A") ? state.nameA : state.nameB;
-      const hint = state.vsAi
-        ? "اضغط حجرًا ثم خانة فاضية."
-        : `مرر الجوال إلى ${nm} ثم اضغط حجرًا ثم خانة فاضية.`;
-      setStatus(`مرحلة الحركة: الدور ${nm} (${state.turnMove})`, hint);
-    }
-  }
-
-  // chain buttons
-  chainActions.style.display = (state.phase==="movement" && state.chainAllowed) ? "flex" : "none";
-
-  // bench
-  capAEl.textContent = state.capturedFrom.A;
-  capBEl.textContent = state.capturedFrom.B;
-
-  dotsA.innerHTML = "";
-  dotsB.innerHTML = "";
-  for(let i=0;i<Math.min(state.capturedFrom.A, 30); i++){
-    const d=document.createElement("div"); d.className="dot A"; dotsA.appendChild(d);
-  }
-  for(let i=0;i<Math.min(state.capturedFrom.B, 30); i++){
-    const d=document.createElement("div"); d.className="dot B"; dotsB.appendChild(d);
-  }
-
-  if(state.lastMove){
-    const lm = state.lastMove;
-    const nm = (lm.player==="A") ? state.nameA : state.nameB;
-    lastMoveBox.textContent = `آخر حركة: ${nm} (${lm.player})  ${rcToLabel(...lm.frm)} → ${rcToLabel(...lm.to)} | تكسير: ${lm.cap}`;
-  }else{
-    lastMoveBox.textContent = "آخر حركة: —";
-  }
-
-  // board
-  boardEl.innerHTML = "";
-  const lastFrom = state.lastMove ? state.lastMove.frm.join(",") : null;
-  const lastTo = state.lastMove ? state.lastMove.to.join(",") : null;
-  const lastPlayer = state.lastMove ? state.lastMove.player : null;
-
-  // captured animation set
-  const capSet = new Set();
-  const capVictim = state.lastCaptured ? state.lastCaptured.victim : null;
-  if(state.lastCaptured){
-    for(const p of state.lastCaptured.positions){
-      capSet.add(p.join(","));
-    }
-  }
-
-  for(let r=0;r<SIZE;r++){
-    for(let c=0;c<SIZE;c++){
-      const cell = document.createElement("div");
-      cell.className="cell";
-      const key = `${r},${c}`;
-
-      if(isCenter(r,c) && state.board[r][c]===EMPTY){
-        cell.classList.add("centerEmpty");
-      }
-
-      if(state.selected && state.selected[0]===r && state.selected[1]===c){
-        cell.classList.add("selected");
-      }
-
-      if(lastFrom === key && lastPlayer){
-        cell.classList.add("lastFrom", lastPlayer);
-      }
-      if(lastTo === key && lastPlayer){
-        cell.classList.add("lastTo", lastPlayer);
-      }
-
-      if(withPulse && (lastFrom===key || lastTo===key)){
-        cell.classList.add("pulse");
-      }
-
-      const v = state.board[r][c];
-
-      // normal piece
-      if(v==="A" || v==="B"){
-        const p = document.createElement("div");
-        p.className = `piece ${v}`;
-        p.textContent = v;
-        cell.appendChild(p);
-      }
-
-      // capture animation ghost (piece already removed in board, but we show shatter)
-      if(v===EMPTY && capSet.has(key) && (capVictim==="A" || capVictim==="B")){
-        const ghost = document.createElement("div");
-        ghost.className = `piece ${capVictim} shatter`;
-        ghost.textContent = capVictim;
-        cell.appendChild(ghost);
-      }
-
-      cell.addEventListener("click", () => handleCellClick(r,c));
-      boardEl.appendChild(cell);
-    }
-  }
-}
-
+/* ---------- UTIL ---------- */
 function shuffle(a){
   for(let i=a.length-1;i>0;i--){
     const j = Math.floor(Math.random()*(i+1));
@@ -723,10 +695,22 @@ function shuffle(a){
   }
 }
 
-function sleep(ms){ return new Promise(res=>setTimeout(res, ms)); }
+/* ---------- BOOT ---------- */
+(function boot(){
+  loadNamesFromStorage();
+  state.vsAi = !!vsAiEl.checked;
 
-// boot defaults
-vsAiEl.checked = true;
-nameAInput.value = "";
-nameBInput.value = "AI";
-resetGame();
+  // ensure defaults
+  state.names.A = cleanName(state.names.A, "Player A");
+  state.names.B = cleanName(state.names.B, state.vsAi ? "AI" : "Player B");
+  saveNamesToStorage();
+
+  render();
+
+  // show names modal on first visit only
+  const seen = localStorage.getItem("seeja_seen_names_v1");
+  if(!seen){
+    localStorage.setItem("seeja_seen_names_v1","1");
+    openNamesModal();
+  }
+})();

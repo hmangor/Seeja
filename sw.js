@@ -1,13 +1,23 @@
-const CACHE = "seeja-v2";
+const CACHE = "seeja-v3";
 const ASSETS = [
   "./",
   "./index.html",
+  "./rules.html",
   "./app.js",
-  "./manifest.json"
+  "./manifest.json",
+  "./logo.png"
 ];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
+});
+
+self.addEventListener("activate", (e) => {
+  e.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.map(k => (k !== CACHE) ? caches.delete(k) : null)
+    ))
+  );
 });
 
 self.addEventListener("fetch", (e) => {
